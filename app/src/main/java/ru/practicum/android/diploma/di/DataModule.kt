@@ -3,36 +3,27 @@ package ru.practicum.android.diploma.di
 import androidx.room.Room
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
-import ru.practicum.android.diploma.search.data.filtersbd.FiltersDataBase
-import ru.practicum.android.diploma.search.data.network.NetworkClient
-import ru.practicum.android.diploma.search.data.network.RetrofitClient
-import ru.practicum.android.diploma.search.data.network.RetrofitNetworkClient
-import ru.practicum.android.diploma.search.data.vacancydb.VacancyDataBase
+import ru.practicum.android.diploma.sharing.bd.database.AppDatabase
 
 val dataModule = module {
 
+    // --- БАЗА ДАННЫХ ---
+
+    // Создаем единственный экземпляр AppDatabase
     single {
         Room.databaseBuilder(
             androidContext(),
-            VacancyDataBase::class.java,
-            "vacancy_database.db"
+            AppDatabase::class.java,
+            "app_database.db"
         ).build()
     }
 
-    single {
-        Room.databaseBuilder(
-            androidContext(),
-            FiltersDataBase::class.java,
-            "filter_database.db"
-        ).build()
-    }
+    // Предоставляем DAO из AppDatabase
+    single { get<AppDatabase>().vacancyDao() }
+    single { get<AppDatabase>().vacancyDetailsDao() }
+    single { get<AppDatabase>().filterDao() }
+    single { get<AppDatabase>().favoriteVacancyDao() }
 
-    single<NetworkClient> {
-        RetrofitNetworkClient(get())
-    }
 
-    single<RetrofitClient> {
-        RetrofitClient
-    }
 
 }
