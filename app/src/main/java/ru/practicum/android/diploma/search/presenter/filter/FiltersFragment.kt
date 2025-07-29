@@ -125,12 +125,18 @@ class FiltersFragment : Fragment() {
     private fun setupSalaryInputClearButton() {
         binding.editTextId.doAfterTextChanged { text ->
             toggleClearButtonVisibility(text.toString())
-            viewModel.updateSalary(text.toString())
+            if (text.isNullOrEmpty()) {
+                viewModel.updateSalary(null)
+            } else {
+                viewModel.updateSalary(text.toString())
+            }
             viewModel.saveFilters()
         }
 
         binding.searchIcon.setOnClickListener {
             binding.editTextId.text?.clear()
+            viewModel.updateSalary(null)
+            viewModel.saveFilters()
         }
     }
 
