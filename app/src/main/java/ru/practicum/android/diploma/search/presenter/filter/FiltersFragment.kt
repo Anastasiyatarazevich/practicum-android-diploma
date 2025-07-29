@@ -39,6 +39,8 @@ class FiltersFragment : Fragment() {
         observeViewModel()
         setupListeners()
         updateOnlyWithSalaryAndSalary()
+        setupSalaryInputClearButton()
+        showCrossIc()
     }
 
     private fun observeViewModel() {
@@ -77,7 +79,7 @@ class FiltersFragment : Fragment() {
                 "industry" to viewModel.selectedIndustry.value?.id,
                 "salary" to viewModel.expectedSalary.value,
                 "only_with_salary" to viewModel.noSalaryOnly.value,
-                "filters_applied" to true // Indicate that filters were applied
+                "filters_applied" to true
             )
             Log.d("FiltersFragment", "Отправка результата: $bundle")
             viewModel.saveFilters()
@@ -99,11 +101,6 @@ class FiltersFragment : Fragment() {
     }
 
     private fun updateOnlyWithSalaryAndSalary() {
-        binding.editTextId.doAfterTextChanged { text ->
-            viewModel.updateSalary(text.toString())
-            viewModel.saveFilters()
-        }
-
         binding.noSalaryCheckbox.setOnCheckedChangeListener { _, isChecked ->
             viewModel.updateNoSalaryOnly(isChecked)
             viewModel.saveFilters()
@@ -123,5 +120,27 @@ class FiltersFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun setupSalaryInputClearButton() {
+        binding.editTextId.doAfterTextChanged { text ->
+            toggleClearButtonVisibility(text.toString())
+            viewModel.updateSalary(text.toString())
+            viewModel.saveFilters()
+        }
+
+        binding.searchIcon.setOnClickListener {
+            binding.editTextId.text?.clear()
+        }
+    }
+
+    private fun toggleClearButtonVisibility(text: String?) {
+        binding.searchIcon.visibility = if (text.isNullOrEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showCrossIc() {
+        if (!binding.editTextId.text.toString().isNullOrEmpty()) {
+            binding.searchIcon.visibility = View.VISIBLE
+        }
     }
 }
