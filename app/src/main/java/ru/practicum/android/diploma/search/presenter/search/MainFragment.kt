@@ -1,13 +1,20 @@
 package ru.practicum.android.diploma.search.presenter.search
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -15,7 +22,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.launch
-import org.koin.android.ext.android.inject
+import org.koin.android.ext.android.get
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
 import ru.practicum.android.diploma.R
@@ -34,7 +41,21 @@ class MainFragment : Fragment() {
     }
     private val recyclerView: RecyclerView get() = binding.vacanciesRvId
     private val searchViewModel: SearchViewModel by viewModel()
-    private val debouncer: Debouncer by inject { parametersOf(viewLifecycleOwner.lifecycleScope) }
+
+    private val connectivityManager by lazy {
+        requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    }
+    private var debouncer: Debouncer? = null
+    private var lastAppliedFilters: Map<String, String> = emptyMap()
+
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            super.onAvailable(network)
+            activity?.runOnUiThread {
+                searchViewModel.onInternetAppeared()
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,40 +68,68 @@ class MainFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        debouncer = get { parametersOf(viewLifecycleOwner.lifecycleScope) }
         initRv()
-
-        val textWatcher = object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                // Not implemented
-            }
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                updateSearchIcon(s)
-                if (!s.isNullOrBlank()) {
-                    debouncer.searchDebounce {
-                        searchViewModel.searchVacancies(s.toString())
-                    }
-                }
-            }
-
-            override fun afterTextChanged(s: Editable?) {
-                // Not implemented
-            }
-        }
-
-        binding.editTextId.addTextChangedListener(textWatcher)
+        setupTextWatcher()
         clearEditText()
         goToFilters()
         stataObserver()
+        setupScrollListener()
+        loadFiltersFromStorage()
+        observeFilterState()
+        setupFragmentResultListener()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val networkRequest = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        connectivityManager.unregisterNetworkCallback(networkCallback)
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        debouncer = null
         _binding = null
     }
 
+    override fun onResume() {
+        super.onResume()
+        searchViewModel.getFiltersState()
+        if (binding.editTextId.text.isNullOrBlank()) {
+            searchViewModel.resetStateIfQueryIsEmpty()
+            showEmpty()
+        }
+    }
+
+    private fun loadFiltersFromStorage() {
+        val (industry, salary, onlyWithSalary) = searchViewModel.loadFiltersFromStorage()
+        val filters = mutableMapOf<String, String>()
+
+        industry?.let {
+            filters["industry"] = it.id
+        }
+
+        salary?.let {
+            if (it != "0" && it.isNotBlank()) {
+                filters["salary"] = it
+            }
+        }
+
+        if (onlyWithSalary) {
+            filters["only_with_salary"] = "true"
+        }
+        lastAppliedFilters = filters
+    }
+
     private fun onVacancyClick(vacancyId: Int) {
-        if (debouncer.clickDebounce()) {
+        if (debouncer?.clickDebounce() ?: false) {
             findNavController().navigate(
                 R.id.action_mainFragment_to_vacancyFragment,
                 bundleOf("vacancyId" to vacancyId.toString())
@@ -107,7 +156,8 @@ class MainFragment : Fragment() {
         binding.searchIcon.setOnClickListener {
             if (binding.searchIcon.tag == R.drawable.cross_light) {
                 binding.editTextId.text.clear()
-                debouncer.cancelDebounce()
+                debouncer?.cancelDebounce()
+                searchViewModel.resetStateIfQueryIsEmpty()
                 showEmpty()
             }
         }
@@ -119,6 +169,44 @@ class MainFragment : Fragment() {
         }
     }
 
+    private fun setupTextWatcher() {
+        val textWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateSearchIcon(s)
+                if (!s.isNullOrBlank()) {
+                    debouncer?.searchDebounce {
+                        searchViewModel.searchVacancies(s.toString(), lastAppliedFilters)
+                    }
+                } else {
+                    showEmpty()
+                    searchViewModel.resetStateIfQueryIsEmpty()
+                    debouncer?.cancelDebounce()
+                }
+
+            }
+
+            override fun afterTextChanged(s: Editable?) = Unit
+        }
+        binding.editTextId.addTextChangedListener(textWatcher)
+    }
+
+    private fun setupScrollListener() {
+        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val pos = layoutManager.findLastVisibleItemPosition()
+                val itemsCount = adapter.itemCount
+                if (pos >= itemsCount - 1) {
+                    recyclerView.post {
+                        searchViewModel.updatePage()
+                    }
+                }
+            }
+        })
+    }
+
     private fun stataObserver() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -127,16 +215,43 @@ class MainFragment : Fragment() {
                         is SearchState.Loading -> showProgressBar()
                         is SearchState.Content -> showContent(state.data)
                         is SearchState.NotFound -> showNotFound()
+                        is SearchState.NoInternet -> {
+                            if (state.isPaginationError) {
+                                showMessage()
+                            } else {
+                                adapter.hideLoading()
+                                showNoInternet()
+                            }
+                        }
+
                         is SearchState.Error -> showError()
                         is SearchState.Empty -> showEmpty()
+                        is SearchState.LoadingMore -> {
+                            adapter.showLoading()
+                            binding.progressBarId.visibility = View.GONE
+                            binding.searchPreviewId.visibility = View.GONE
+                            binding.notFoundPreview.visibility = View.GONE
+                            binding.vacanciesRvId.visibility = View.VISIBLE
+                            binding.infoShieldId.visibility = View.VISIBLE
+                            binding.noInternetPreviewId.visibility = View.GONE
+                        }
                     }
                 }
             }
         }
     }
 
+    private fun showMessage() {
+        Toast.makeText(
+            requireContext(),
+            getString(R.string.no_internet_message),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
     private fun showContent(data: List<VacancyPreviewUi>) {
         adapter.setList(data)
+        adapter.hideLoading()
         binding.progressBarId.visibility = View.GONE
         binding.searchPreviewId.visibility = View.GONE
         binding.noInternetPreviewId.visibility = View.GONE
@@ -153,6 +268,7 @@ class MainFragment : Fragment() {
         binding.vacanciesRvId.visibility = View.GONE
         binding.infoShieldId.visibility = View.GONE
         binding.noInternetPreviewId.visibility = View.GONE
+        adapter.hideLoading()
     }
 
     private fun showNotFound() {
@@ -163,15 +279,27 @@ class MainFragment : Fragment() {
         binding.vacanciesRvId.visibility = View.GONE
         binding.infoShieldId.visibility = View.VISIBLE
         binding.infoShieldId.text = "Таких вакансий нет"
+        adapter.hideLoading()
     }
 
-    private fun showError() {
+    private fun showNoInternet() {
         binding.progressBarId.visibility = View.GONE
         binding.searchPreviewId.visibility = View.GONE
         binding.noInternetPreviewId.visibility = View.VISIBLE
         binding.notFoundPreview.visibility = View.GONE
         binding.vacanciesRvId.visibility = View.GONE
         binding.infoShieldId.visibility = View.GONE
+        adapter.hideLoading()
+    }
+
+    private fun showError() {
+        binding.progressBarId.visibility = View.GONE
+        binding.searchPreviewId.visibility = View.GONE
+        binding.noInternetPreviewId.visibility = View.GONE
+        binding.apiErrorPreviewId.visibility = View.VISIBLE
+        binding.vacanciesRvId.visibility = View.GONE
+        binding.infoShieldId.visibility = View.GONE
+        adapter.hideLoading()
     }
 
     private fun showEmpty() {
@@ -181,5 +309,49 @@ class MainFragment : Fragment() {
         binding.notFoundPreview.visibility = View.GONE
         binding.vacanciesRvId.visibility = View.GONE
         binding.infoShieldId.visibility = View.GONE
+        adapter.hideLoading()
+    }
+
+    private fun observeFilterState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                searchViewModel.filterState.collect { filterState ->
+                    when (filterState) {
+                        FilterState.Empty -> {
+                            binding.filterButton.setImageResource(R.drawable.filter_off)
+                        }
+
+                        FilterState.Saved -> {
+                            binding.filterButton.setImageResource(R.drawable.filter_on)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setupFragmentResultListener() {
+        setFragmentResultListener(
+            getString(R.string.filter_request)
+        ) { _, bundle ->
+            val filtersApplied = bundle.getBoolean(
+                getString(R.string.filters_applied),
+                false
+            )
+            loadFiltersFromStorage()
+            searchViewModel.getFiltersState()
+
+            if (filtersApplied) {
+                val currentQuery = binding.editTextId.text.toString()
+                if (currentQuery.isNotBlank()) {
+                    searchViewModel.searchVacancies(currentQuery, lastAppliedFilters)
+                    debouncer?.cancelDebounce()
+                } else {
+                    showEmpty()
+                }
+            } else {
+                debouncer?.cancelDebounce()
+            }
+        }
     }
 }

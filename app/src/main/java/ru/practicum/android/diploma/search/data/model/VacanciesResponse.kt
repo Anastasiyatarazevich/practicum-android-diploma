@@ -4,7 +4,9 @@ import com.google.gson.annotations.SerializedName
 
 data class VacanciesResponse(
     val found: Int,
-    val items: List<Vacancy>
+    val items: List<Vacancy>,
+    val page: Int,
+    val pages: Int
 ) : Response()
 
 data class Vacancy(
@@ -28,4 +30,3 @@ data class Employer(
     val logoUrl: String?
         get() = logoUrls?.get("240") ?: logoUrls?.get("original") ?: logoUrls?.get("90")
 }
-

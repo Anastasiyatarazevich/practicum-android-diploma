@@ -53,14 +53,13 @@
         <ImageView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="22dp"
+            android:layout_marginEnd="4dp"
             android:src="@drawable/arrow_right_icon_light"
             app:layout_constraintBottom_toBottomOf="@id/filterText"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@id/filterText" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/fieldId"
@@ -71,52 +70,93 @@
         app:layout_constraintTop_toBottomOf="@id/placeContainerId">
 
         <TextView
+            android:id="@+id/industryHintId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Отрасль"
+            android:fontFamily="@font/ys_text_regular"
+            android:textSize="12sp"
+            android:visibility="visible"
+            android:textColor="@color/black"
+            app:layout_constraintStart_toStartOf="@id/filterField"
+            app:layout_constraintBottom_toTopOf="@id/filterField"
+            >
+        </TextView>
+
+
+        <TextView
             android:id="@+id/filterField"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
+            android:layout_marginEnd="8dp"
+            android:ellipsize="end"
             android:fontFamily="@font/ys_text_regular"
+            android:maxLines="1"
             android:text="@string/filter_field"
             android:textColor="@color/gray"
             android:textSize="16sp"
             app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/industryArrowIcon"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
         <ImageView
+            android:id="@+id/industryArrowIcon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="22dp"
+            android:layout_marginEnd="4dp"
+            android:clickable="true"
             android:src="@drawable/arrow_right_icon_light"
-            app:layout_constraintBottom_toBottomOf="@id/filterField"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/filterField" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/editTextContainerId"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginTop="24dp"
-        android:background="@drawable/search_edit_text_background"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/fieldId">
-
-        <EditText
-            android:id="@+id/editTextId"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:backgroundTint="@android:color/transparent"
-            android:fontFamily="@font/ys_text_regular"
-            android:hint="@string/filter_entersum"
-            android:paddingStart="16dp"
-            android:textColorHint="@color/hint_color"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <EditText
+        android:id="@+id/editTextId"
+        style="@style/EditTextStyle"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginVertical="24dp"
+        android:hint="@string/filter_entersum"
+        android:inputType="number"
+        android:maxLength="9"
+        android:maxLines="1"
+        android:paddingTop="11dp"
+        android:singleLine="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/fieldId" />
+
+    <TextView
+        android:id="@+id/salary_hint"
+        android:layout_width="0dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/filter_expectprice"
+        android:textColor="@color/gray"
+        android:textSize="12sp"
+        android:fontFamily="@font/ys_text_regular"
+        android:clickable="false"
+        app:layout_constraintStart_toStartOf="@id/editTextId"
+        app:layout_constraintTop_toTopOf="@id/editTextId" />
+
+    <ImageView
+        android:id="@+id/searchIcon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:src="@drawable/cross_light"
+        app:layout_constraintBottom_toBottomOf="@id/editTextId"
+        app:layout_constraintEnd_toEndOf="@id/editTextId"
+        app:layout_constraintTop_toTopOf="@id/editTextId"
+        android:visibility="gone" />
+
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/salaryCheckBoxContainer"
@@ -125,7 +165,7 @@
         android:layout_marginTop="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/editTextContainerId">
+        app:layout_constraintTop_toBottomOf="@id/editTextId">
 
         <TextView
             android:id="@+id/noSalaryTextView"
@@ -140,14 +180,51 @@
             app:layout_constraintTop_toTopOf="parent" />
 
         <android.widget.CheckBox
+            android:id="@+id/noSalaryCheckbox"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="16dp"
+            android:buttonTint="@color/blue"
             app:layout_constraintBottom_toBottomOf="@id/noSalaryTextView"
             app:layout_constraintEnd_toEndOf="parent"
-            android:buttonTint="@color/blue"
             app:layout_constraintTop_toTopOf="@id/noSalaryTextView" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <TextView
+        android:id="@+id/resetButton"
+        style="@style/Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:padding="8dp"
+        android:text="@string/filter_reset_btn"
+        android:textColor="@color/red"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:visibility="visible" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/applyButton"
+        style="@style/Text.Body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/select_button"
+        android:padding="@dimen/padding_medium"
+        android:text="@string/filter_apply_btn"
+        android:textColor="@color/white"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/resetButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:visibility="visible" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
